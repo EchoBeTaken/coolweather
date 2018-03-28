@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -37,6 +38,8 @@ import okhttp3.Response;
  */
 
 public class ChooseAreaFragment extends Fragment {
+
+    private static final String TAG = "ChooseAreaFragment";
 
     public static final int LEVEL_PROVINCE = 0;
 
@@ -93,7 +96,8 @@ public class ChooseAreaFragment extends Fragment {
         titleText = (TextView) view.findViewById(R.id.title_text);
         backButton = (Button) view.findViewById(R.id.back_button);
         listView = (ListView) view.findViewById(R.id.list_view);
-        adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, dataList);
+        adapter = new ArrayAdapter<>(getContext(),
+                android.R.layout.simple_list_item_1, dataList);
         listView.setAdapter(adapter);
         return view;
 
@@ -106,8 +110,10 @@ public class ChooseAreaFragment extends Fragment {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
                 if (currentLevel == LEVEL_PROVINCE) {
+                    selectedProvince = provinceList.get(position);  //选择当前选择的省或市
                     queryCities();
                 } else if (currentLevel == LEVEL_CITY) {
+                    selectedCity = cityList.get(position);
                     queryCounties();
                 }
             }
@@ -137,7 +143,7 @@ public class ChooseAreaFragment extends Fragment {
             dataList.clear();
             for (Province province : provinceList) {
                 dataList.add(province.getProvinceName());
-
+                //Log.d(TAG, "queryProvince: provinceGetDataFromDatabase.");
             }
             adapter.notifyDataSetChanged();
             listView.setSelection(0);
@@ -145,6 +151,7 @@ public class ChooseAreaFragment extends Fragment {
         } else {
             String address = "http://guolin.tech/api/china";
             queryFromServer(address, "province");
+            //Log.d(TAG, "queryProvince: getDataFromService.");
         }
     }
 
@@ -153,15 +160,20 @@ public class ChooseAreaFragment extends Fragment {
      */
     private void queryCities() {
         titleText.setText(selectedProvince.getProvinceName());
+        Log.d(TAG, "修改title为省名");
         backButton.setVisibility(View.VISIBLE);
-        cityList = DataSupport.where("provinceid = ?", String.valueOf(selectedProvince.getId())).find(City.class);
+        cityList = DataSupport.where("provinceId = ?",
+                String.valueOf(selectedProvince.getId())).find(City.class);
+        Log.d(TAG, "queryCities: 获取城市列表");
         if (cityList.size() > 0) {
             dataList.clear();
             for (City city : cityList) {
                 dataList.add(city.getCityName());
             }
+            Log.d(TAG, "更新城市数据");
             adapter.notifyDataSetChanged();
             listView.setSelection(0);
+            Log.d(TAG, "将省转换到市。");
             currentLevel = LEVEL_CITY;
         } else {
             int provinceCode = selectedProvince.getProvinceCode();
@@ -219,16 +231,22 @@ public class ChooseAreaFragment extends Fragment {
                 boolean result = false;
                 if ("province".equals(type)) {
                     result = Utility.handleProvinceResponse(responseText);
+                    Log.d(TAG, "进度条: 获取省级数据。");
+
                 } else if ("city".equals(type)) {
-                    result = Utility.handleCityResponse(responseText, selectedProvince.getId());
+                    result = Utility.handleCityResponse(responseText, 
+                            selectedProvince.getId());
+                    Log.d(TAG, "onResponse: 从服务器获取市级数据");
                 } else if ("county".equals(type)){
-                    result = Utility.handleCountyResponse(responseText, selectedCity.getId());
+                    result = Utility.handleCountyResponse(responseText, 
+                            selectedCity.getId());
                 }
                 if (result) {
                     getActivity().runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             closeProgressDialog();
+                            Log.d(TAG, "进度条: 关闭进度条");
                             if ("province".equals(type)) {
                                 queryProvince();
                             } else if ("city".equals(type)) {
